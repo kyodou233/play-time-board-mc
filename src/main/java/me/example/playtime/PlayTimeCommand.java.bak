@@ -1,0 +1,60 @@
+package me.example.playtime;
+
+import com.mojang.brigadier.CommandDispatcher;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.util.Map;
+import java.util.UUID;
+
+public class PlayTimeCommand {
+
+    public static void register() {
+        CommandRegistrationCallback.EVENT.register(
+                (dispatcher, registryAccess, environment) ->
+                        register(dispatcher)
+        );
+    }
+
+    private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(
+                Commands.literal("playtime")
+                        .executes(context -> {
+                            CommandSourceStack source = context.getSource();
+                            ServerPlayer player = source.getPlayer();
+
+                            if (player == null) {
+                                source.sendFailure(Component.literal("该命令只能由玩家执行"));
+                                return 1;
+                            }
+
+                            PlayTimeManager manager = PlayTimeBoardFabric.getInstance().getPlayTimeManager();
+
+                            player.sendSystemMessage(Component.literal("§6===== 在线时长排行榜 ====="));
+
+                            int rank = 1;
+                            for (Map.Entry<UUID, Long> entry : manager.getSortedPlayers().entrySet()) {
+                                String name = manager.getPlayerName(entry.getKey());
+                                String time = manager.formatBoardTime(entry.getValue());
+                                player.sendSystemMessage(Component.literal(
+                                        "§e#" + rank + " §f" + name + " §7" + time
+                                ));
+                                rank++;
+                            }
+
+                            player.sendSystemMessage(Component.literal(" "));
+                            player.sendSystemMessage(Component.literal(
+                                    "§a你的排名：#" + manager.getRank(player.getUUID())
+                            ));
+                            player.sendSystemMessage(Component.literal(
+                                    "§b当前时长：" + manager.formatFullTime(manager.getPlayTicks(player.getUUID()))
+                            ));
+
+                            return 1;
+                        })
+        );
+    }
+}
